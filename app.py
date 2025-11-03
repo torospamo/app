@@ -1,104 +1,86 @@
 import streamlit as st
 import random
 
-st.set_page_config(page_title="Generator LRK", page_icon="🎵", layout="centered")
+st.set_page_config(page_title="Generator LRK", page_icon="🥁", layout="centered")
 
-st.markdown("""
-    <h2 style='text-align:center; color:white;'>🎵 Generator sekwencji L R K</h2>
-""", unsafe_allow_html=True)
-
-# --- Ustawienia stylu ---
+# --- Styl ---
 st.markdown("""
     <style>
         .stApp {
             background-color: #101010;
-        }
-        div[data-testid="stNumberInput"] label p {
-            color: #cccccc;
-        }
-        div[data-testid="stNumberInput"] input {
+            color: white;
             text-align: center;
-            color: black !important;
         }
         .litera {
             display: inline-block;
             font-weight: bold;
-            font-size: 32px;
+            font-size: 36px;
             margin: 0 6px;
         }
+        .litera.L { color: #3ba4ff; }
+        .litera.R { color: #4aff3b; }
+        .litera.K { color: #ff4a4a; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- Dane i zmienne ---
-kolory = {"L": "#3ba4ff", "R": "#4aff3b", "K": "#ff4a4a"}
-dostepne_dlugosci = [3, 4, 5, 6, 7, 8, 12, 16]
+st.markdown("<h2>🎵 Generator sekwencji L R K</h2>", unsafe_allow_html=True)
 
-# --- Wybór długości ---
+# --- Ustawienia ---
+dostepne_dlugosci = [3, 4, 5, 6, 8, 12, 16]
 dlugosc = st.selectbox("Długość sekwencji:", dostepne_dlugosci, index=5)
 
-# --- Tabela min/max ---
-st.markdown("### Ustawienia ilości liter")
-cols_header = st.columns([1, 1, 1, 1])
-cols_header[0].write("**Litera**")
-cols_header[1].write("**Min**")
-cols_header[2].write("**Max**")
-cols_header[3].write("")
+st.markdown("### Ustawienia ilości liter (min / max)")
 
-min_values = {}
-max_values = {}
+# --- Formularz min/max ---
+minL = st.number_input("Min L", min_value=0, max_value=dlugosc, value=2)
+maxL = st.number_input("Max L", min_value=minL, max_value=dlugosc, value=2)
+minR = st.number_input("Min R", min_value=0, max_value=dlugosc, value=2)
+maxR = st.number_input("Max R", min_value=minR, max_value=dlugosc, value=2)
+minK = st.number_input("Min K", min_value=0, max_value=dlugosc, value=2)
+maxK = st.number_input("Max K", min_value=minK, max_value=dlugosc, value=2)
 
-for lit in "LRK":
-    cols = st.columns([1, 1, 1, 1])
-    cols[0].markdown(f"<span style='color:{kolory[lit]}; font-size:22px; font-weight:bold'>{lit}</span>", unsafe_allow_html=True)
-    min_values[lit] = cols[1].number_input(f"min_{lit}", min_value=0, max_value=dlugosc, value=2, key=f"min_{lit}")
-    max_values[lit] = cols[2].number_input(f"max_{lit}", min_value=min_values[lit], max_value=dlugosc, value=2, key=f"max_{lit}")
+# --- Funkcja korekty ---
+def popraw_zakresy(dlugosc, miny, maxy):
+    suma_min = sum(miny.values())
+    suma_max = sum(maxy.values())
 
-# --- Korekta logiczna ---
-def popraw_zakresy():
-    Lmin, Rmin, Kmin = min_values["L"], min_values["R"], min_values["K"]
-    Lmax, Rmax, Kmax = max_values["L"], max_values["R"], max_values["K"]
-    suma_min = Lmin + Rmin + Kmin
-    suma_max = Lmax + Rmax + Kmax
-
-    # automatyczna korekta
+    # Korekta jeśli suma_min > długość
     if suma_min > dlugosc:
         wsp = dlugosc / suma_min
-        Lmin, Rmin, Kmin = int(Lmin * wsp), int(Rmin * wsp), int(Kmin * wsp)
+        for k in miny:
+            miny[k] = max(0, int(miny[k] * wsp))
+
+    # Korekta jeśli suma_max < długość
     if suma_max < dlugosc:
         wsp = dlugosc / suma_max if suma_max > 0 else 1
-        Lmax, Rmax, Kmax = int(Lmax * wsp), int(Rmax * wsp), int(Kmax * wsp)
+        for k in maxy:
+            maxy[k] = min(dlugosc, int(maxy[k] * wsp))
 
-    return {"L": [Lmin, Lmax], "R": [Rmin, Rmax], "K": [Kmin, Kmax]}
+    return miny, maxy
 
-# --- Generator sekwencji ---
-def generuj_sekwencje():
-    zakresy = popraw_zakresy()
+# --- Generowanie sekwencji ---
+def generuj_sekwencje(dlugosc, miny, maxy):
+    miny, maxy = popraw_zakresy(dlugosc, miny, maxy)
     litery = []
-
     for l in "LRK":
-        litery.extend([l] * zakresy[l][0])
+        litery.extend([l] * miny[l])
 
     while len(litery) < dlugosc:
         los = random.choice("LRK")
-        if litery.count(los) < zakresy[los][1]:
+        if litery.count(los) < maxy[los]:
             litery.append(los)
-        elif all(litery.count(x) >= zakresy[x][1] for x in "LRK"):
+        elif all(litery.count(x) >= maxy[x] for x in "LRK"):
             break
 
     random.shuffle(litery)
     return litery
 
-# --- Przycisk generowania ---
-if st.button("🎲 Generuj sekwencję", use_container_width=True):
-    sekwencja = generuj_sekwencje()
-    wynik_html = "".join([f"<span class='litera' style='color:{kolory[l]}'>{l}</span>" for l in sekwencja])
-    st.markdown(f"<div style='text-align:center; margin-top:20px;'>{wynik_html}</div>", unsafe_allow_html=True)
+# --- Obsługa przycisku ---
+if st.button("🎲 Generuj sekwencję"):
+    miny = {"L": minL, "R": minR, "K": minK}
+    maxy = {"L": maxL, "R": maxR, "K": maxK}
+    seq = generuj_sekwencje(dlugosc, miny, maxy)
+    html = "".join([f"<span class='litera {l}'>{l}</span>" for l in seq])
+    st.markdown(html, unsafe_allow_html=True)
 
-# --- Stopka / informacje ---
-st.markdown("""
-<hr style="border: 1px solid #333;">
-<p style="text-align:center; color:gray; font-size:13px;">
-  Aplikacja: <b>Generator LRK</b> • stworzona z pasją 🥁<br>
-  Możesz wspomóc rozwój projektu dowolnym datkiem 🙏
-</p>
-""", unsafe_allow_html=True)
+st.markdown("<hr><small>by ChatGPT & Użytkownik 🎧</small>", unsafe_allow_html=True)
